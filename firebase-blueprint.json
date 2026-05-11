@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information and role",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "username": { "type": "string" },
+        "fullName": { "type": "string" },
+        "birthDate": { "type": "string", "format": "date" },
+        "role": { "type": "string", "enum": ["admin", "student"] },
+        "lastAccess": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "username", "fullName", "role"]
+    },
+    "Result": {
+      "title": "Simulado Result",
+      "description": "Record of a completed quiz session",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "username": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "sessionTitle": { "type": "string" },
+        "score": { "type": "number" },
+        "total": { "type": "number" },
+        "answersMap": { "type": "array" }
+      },
+      "required": ["uid", "username", "date", "sessionTitle", "score", "total"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles indexed by Auth UID"
+    },
+    "/results/{resultId}": {
+      "schema": "Result",
+      "description": "History of student quiz results"
+    }
+  }
+}
