@@ -1,6 +1,5 @@
 {
-  "name": "Prova",
-  "description": "Um aplicativo de quiz lúdico para estudar Português, Matemática, História e Geografia com feedback em tempo real e explicações.",
-  "requestFramePermissions": [],
-  "majorCapabilities": []
+  "name": "Aprende+",
+  "description": "Um aplicativo de quiz lúdico e educativo para estudar diversas matérias com feedback em tempo real e explicações.",
+  "TargetFile": "/metadata.json"
 }

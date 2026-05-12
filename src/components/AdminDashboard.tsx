@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Users, Clock, LogOut, BookOpen, User, Edit2, Save, X, Eye, EyeOff, ChevronDown, ChevronUp, Trash2, Globe, BarChart, Settings, HelpCircle, Layers, BookMarked, Server } from 'lucide-react';
+import { ArrowLeft, Users, Clock, LogOut, BookOpen, User, Edit2, Save, X, Eye, EyeOff, ChevronDown, ChevronUp, Trash2, Globe, BarChart, Settings, HelpCircle, Layers, BookMarked, Server, Upload, CheckCircle2 } from 'lucide-react';
+import { Logo } from './Logo';
 import { calculateAge } from './LoginScreen';
 import { 
   getAllStudents, 
@@ -41,7 +42,7 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
     moduleId: 0,
     type: 'choice',
     question: '',
-    options: ['', '', ''],
+    options: ['', '', '', ''],
     correct: '',
     explanation: '',
     difficulty: 'Fácil'
@@ -78,6 +79,8 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
 
   const [expandedResultIdx, setExpandedResultIdx] = useState<number | null>(null);
   const [deleteConfirmResult, setDeleteConfirmResult] = useState<ResultRecord | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const fetchAllData = async () => {
     try {
@@ -95,6 +98,47 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!moduleFilter) {
+      alert("Por favor, selecione um MÓDULO específico no filtro acima antes de enviar o arquivo.");
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('moduleId', moduleFilter.toString());
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/upload-questions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        alert(`Sucesso! ${data.count} questões foram adicionadas ao módulo.`);
+        const updatedQuestions = await getQuestionsData();
+        setQuestionsData(updatedQuestions);
+      } else {
+        alert(data.message || "Erro ao processar o arquivo.");
+      }
+    } catch (err) {
+      alert("Erro ao enviar o arquivo.");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   useEffect(() => {
     fetchAllData();
   }, []);
@@ -105,7 +149,24 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
 
   const handleAddQuestion = async () => {
     if (!newQuestion.question || !newQuestion.correct || newQuestion.moduleId === 0) {
-      alert("Preecha os campos obrigatórios");
+      alert("Preencha os campos obrigatórios");
+      return;
+    }
+
+    const validOptions = newQuestion.options.filter(o => o.trim() !== '');
+    if (validOptions.length !== 4) {
+      alert("A questão deve ter exatamente 4 opções de resposta preenchidas.");
+      return;
+    }
+
+    const uniqueOptions = new Set(validOptions.map(o => o.trim()));
+    if (uniqueOptions.size !== 4) {
+      alert("As opções de resposta não podem ser repetidas. Forneça 4 opções únicas.");
+      return;
+    }
+
+    if (!uniqueOptions.has(newQuestion.correct.trim())) {
+      alert("A resposta correta deve ser exatamente igual a uma das 4 opções.");
       return;
     }
 
@@ -124,7 +185,7 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
         moduleId: 0,
         type: 'choice',
         question: '',
-        options: ['', '', ''],
+        options: ['', '', '', ''],
         correct: '',
         explanation: '',
         difficulty: 'Fácil'
@@ -138,12 +199,15 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
 
   const handleEditQuestion = (q: any, modId: number) => {
     setEditingQuestionId(q.id);
+    const paddedOptions = [...(q.options || [])];
+    while(paddedOptions.length < 4) paddedOptions.push('');
+
     setNewQuestion({
         id: q.id,
         moduleId: modId,
         type: q.type,
         question: q.question,
-        options: q.options,
+        options: paddedOptions.slice(0, 4),
         correct: q.correct,
         explanation: q.explanation || '',
         difficulty: q.difficulty || 'Fácil'
@@ -335,11 +399,9 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
             >
               <ArrowLeft size={20} />
             </button>
-            <div>
-              <h2 className="text-xl font-black tracking-tight flex items-center gap-2">
-                Painel Admin
-              </h2>
-              <p className="text-[10px] uppercase tracking-wider font-bold text-zinc-400">Plataforma</p>
+            <div className="flex flex-col">
+              <Logo size="sm" variant="full" />
+              <p className="text-[10px] uppercase tracking-wider font-bold text-blue-600 mt-1">Painel Administrativo</p>
             </div>
           </div>
 
@@ -413,68 +475,78 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
             <h3 className="text-xl font-bold">Perfil do Aluno</h3>
           </div>
 
-          <div className={`p-6 rounded-2xl border flex flex-col md:flex-row gap-6 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
-            <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-zinc-200 dark:border-zinc-700 shrink-0">
+          <div className={`p-6 sm:p-8 rounded-[32px] border flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8 ${theme === 'dark' ? 'bg-zinc-900/80 border-zinc-800' : 'bg-white border-zinc-100 shadow-xl shadow-black/5'}`}>
+            <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden border-[6px] border-zinc-100 dark:border-zinc-800 shrink-0 shadow-md">
               {selectedStudent.profilePicture ? (
                 <img src={selectedStudent.profilePicture} alt={selectedStudent.fullName} className="w-full h-full object-cover" />
               ) : (
                 <div className={`w-full h-full flex items-center justify-center ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
-                  <User size={36} className="text-zinc-500" />
+                  <User size={48} className="text-zinc-500" />
                 </div>
               )}
             </div>
             
-            <div className="flex-1 space-y-4">
+            <div className="flex-1 w-full flex flex-col items-center sm:items-start text-center sm:text-left">
               {isEditingStudent ? (
-                <div className="flex flex-col gap-2">
-                  <input
-                    type="text"
-                    value={editFullName}
-                    onChange={(e) => setEditFullName(e.target.value)}
-                    placeholder="Nome Completo"
-                    className={`px-3 py-1.5 text-lg font-bold rounded-lg border ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 focus:border-blue-500 text-white' : 'bg-white border-zinc-200 focus:border-blue-500 text-black'} outline-none`}
-                  />
-                  <div className="flex gap-2">
+                <div className="w-full space-y-4">
+                  <div className="w-full">
+                    <label className="block text-xs font-bold uppercase text-zinc-500 mb-1">Nome Completo</label>
                     <input
-                      type="date"
-                      value={editBirthDate}
-                      onChange={(e) => setEditBirthDate(e.target.value)}
-                      className={`px-3 py-1.5 text-sm rounded-lg border ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 focus:border-blue-500 text-white' : 'bg-white border-zinc-200 focus:border-blue-500 text-black'} outline-none`}
+                      type="text"
+                      value={editFullName}
+                      onChange={(e) => setEditFullName(e.target.value)}
+                      placeholder="Nome Completo"
+                      className={`px-4 py-3 text-base font-bold rounded-xl border ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 focus:border-blue-500 text-white' : 'bg-zinc-50 border-zinc-200 focus:border-blue-500 text-black'} outline-none w-full transition-colors`}
                     />
-                    <div className="relative">
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-zinc-500 mb-1">Data Nasc.</label>
+                      <input
+                        type="date"
+                        value={editBirthDate}
+                        onChange={(e) => setEditBirthDate(e.target.value)}
+                        className={`px-4 py-3 text-sm rounded-xl border ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 focus:border-blue-500 text-white' : 'bg-zinc-50 border-zinc-200 focus:border-blue-500 text-black'} outline-none w-full transition-colors`}
+                      />
+                    </div>
+                    <div className="relative w-full">
+                      <label className="block text-xs font-bold uppercase text-zinc-500 mb-1">Nova Senha</label>
                       <input
                         type={showPassword ? "text" : "password"}
                         value={editPassword}
                         onChange={(e) => setEditPassword(e.target.value)}
-                        placeholder="Nova Senha"
-                        className={`px-3 pr-9 py-1.5 text-sm rounded-lg border ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 focus:border-blue-500 text-white' : 'bg-white border-zinc-200 focus:border-blue-500 text-black'} outline-none`}
+                        placeholder="Deixe em branco para manter"
+                        className={`w-full px-4 pr-10 py-3 text-sm rounded-xl border ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 focus:border-blue-500 text-white' : 'bg-zinc-50 border-zinc-200 focus:border-blue-500 text-black'} outline-none transition-colors`}
                       />
                       <button 
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 pointer-events-auto"
+                        className="absolute right-3 top-[34px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 pointer-events-auto"
                       >
-                        {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
                     </div>
                     {(currentUser?.role === 'masteradmin' || currentUser?.username === 'deiorbo') && (
-                      <select
-                        value={editRole}
-                        onChange={(e) => setEditRole(e.target.value as 'masteradmin' | 'teacher' | 'student')}
-                        className={`px-3 py-1.5 text-sm rounded-lg border ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 focus:border-blue-500 text-white' : 'bg-white border-zinc-200 focus:border-blue-500 text-black'} outline-none`}
-                      >
-                        <option value="student">Aluno</option>
-                        <option value="teacher">Professor</option>
-                        <option value="masteradmin">Master Admin</option>
-                      </select>
+                      <div>
+                        <label className="block text-xs font-bold uppercase text-zinc-500 mb-1">Cargo</label>
+                        <select
+                          value={editRole}
+                          onChange={(e) => setEditRole(e.target.value as 'masteradmin' | 'teacher' | 'student')}
+                          className={`px-4 py-3 text-sm rounded-xl border ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 focus:border-blue-500 text-white' : 'bg-zinc-50 border-zinc-200 focus:border-blue-500 text-black'} outline-none w-full transition-colors`}
+                        >
+                          <option value="student">Aluno</option>
+                          <option value="teacher">Professor</option>
+                          <option value="masteradmin">Master Admin</option>
+                        </select>
+                      </div>
                     )}
                   </div>
                 </div>
               ) : (
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-2xl font-black">{selectedStudent.fullName}</h3>
-                    <span className={`px-2 py-0.5 text-xs font-bold rounded-lg ${
+                <div className="flex flex-col items-center sm:items-start w-full">
+                  <div className="flex flex-col sm:flex-row items-center sm:items-baseline gap-3 mb-2">
+                    <h3 className="text-3xl font-black">{selectedStudent.fullName}</h3>
+                    <span className={`px-2.5 py-1 text-[10px] uppercase tracking-wider font-extrabold rounded-lg ${
                       selectedStudent.role === 'masteradmin' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
                       selectedStudent.role === 'teacher' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 
                       'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
@@ -483,19 +555,32 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
                        selectedStudent.role === 'teacher' ? 'Professor' : 'Aluno'}
                     </span>
                   </div>
-                  <p className="text-zinc-500 mb-2">@{selectedStudent.username} • {calculateAge(selectedStudent.birthDate)} anos</p>
-                  <p className="text-sm">Total de Simulados: <strong>{currentStudentResults.length}</strong></p>
-                  {selectedStudent.lastAccess && (
-                    <p className="text-sm text-zinc-500">Último acesso: {new Date(selectedStudent.lastAccess).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
-                  )}
+                  <div className="flex items-center gap-2 mb-6">
+                    <span className="text-zinc-500 font-medium">@{selectedStudent.username}</span>
+                    <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                    <span className="text-zinc-500 font-medium">{calculateAge(selectedStudent.birthDate)} anos</span>
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4">
+                    <div className={`px-4 py-2.5 rounded-xl border ${theme === 'dark' ? 'bg-zinc-800/50 border-zinc-700' : 'bg-zinc-50 border-zinc-200'}`}>
+                      <p className="text-[10px] uppercase font-bold text-zinc-500 mb-0.5">Simulados</p>
+                      <p className="text-lg font-black">{currentStudentResults.length}</p>
+                    </div>
+                    {selectedStudent.lastAccess && (
+                      <div className={`px-4 py-2.5 rounded-xl border ${theme === 'dark' ? 'bg-zinc-800/50 border-zinc-700' : 'bg-zinc-50 border-zinc-200'}`}>
+                        <p className="text-[10px] uppercase font-bold text-zinc-500 mb-0.5">Último Login</p>
+                        <p className="text-sm font-bold mt-1.5">{new Date(selectedStudent.lastAccess).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
-              <div className="flex gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-800 mt-4">
+              <div className="flex w-full justify-center sm:justify-start gap-3 mt-8">
                 {isEditingStudent ? (
                   <>
-                    <button onClick={() => setIsEditingStudent(false)} className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-colors ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600'}`}><X size={16}/> Cancelar</button>
-                    <button onClick={handleSaveStudentProfile} className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-colors bg-green-600 hover:bg-green-700 text-white`}><Save size={16}/> Salvar</button>
+                    <button onClick={() => setIsEditingStudent(false)} className={`flex items-center justify-center gap-2 px-6 py-3 text-sm font-bold rounded-xl transition-colors ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600'}`}><X size={16}/> Cancelar</button>
+                    <button onClick={handleSaveStudentProfile} className={`flex items-center justify-center gap-2 px-6 py-3 text-sm font-bold rounded-xl transition-all shadow-lg active:scale-95 bg-green-600 hover:bg-green-700 text-white`}><Save size={16}/> Salvar Perfil</button>
                   </>
                 ) : (
                   <button onClick={() => {
@@ -504,7 +589,7 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
                     setEditPassword(selectedStudent.password || '');
                     setEditRole(selectedStudent.role);
                     setIsEditingStudent(true);
-                  }} className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-colors ${theme === 'dark' ? 'bg-blue-900/30 hover:bg-blue-900/50 text-blue-400' : 'bg-blue-50 hover:bg-blue-100 text-blue-600'}`}><Edit2 size={16}/> Editar Perfil</button>
+                  }} className={`flex items-center justify-center gap-2 px-6 py-3 text-sm font-bold rounded-xl transition-all shadow-lg active:scale-95 bg-blue-600 hover:bg-blue-700 text-white`}><Edit2 size={16}/> Editar Perfil</button>
                 )}
               </div>
             </div>
@@ -521,13 +606,13 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
                       className="p-4 sm:p-6 flex flex-col md:flex-row justify-between md:items-center gap-4 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                       onClick={() => setExpandedResultIdx(expandedResultIdx === i ? null : i)}
                     >
-                      <div className="flex-1">
-                        <h4 className="font-bold text-lg">{result.sessionTitle}</h4>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-lg truncate">{result.sessionTitle}</h4>
                         <p className="text-sm text-zinc-400 flex items-center gap-2 mt-1">
-                          <Clock size={14}/> {new Date(result.date).toLocaleString('pt-BR')}
+                          <Clock size={14} className="shrink-0"/> <span className="truncate">{new Date(result.date).toLocaleString('pt-BR')}</span>
                         </p>
                       </div>
-                      <div className="flex items-center gap-4 text-center justify-between md:justify-end">
+                      <div className="flex items-center gap-4 justify-between md:justify-end shrink-0 w-full md:w-auto">
                         <div className="flex gap-2">
                            <div className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-3 py-1.5 rounded-lg flex gap-2 items-center">
                              <p className="text-xs font-bold uppercase hidden sm:block">Acertos</p>
@@ -638,7 +723,7 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
                              </p>
                            </div>
                          </div>
-                         <div className="flex items-center gap-4 md:justify-end">
+                         <div className="flex items-center gap-4 justify-between md:justify-end shrink-0 w-full md:w-auto mt-2 md:mt-0">
                             <div className="flex gap-2">
                               <div className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-3 py-1 bg-opacity-50 border border-green-500/20 rounded-lg flex items-center gap-2">
                                 <span className="text-[10px] font-black uppercase hidden sm:block">Acertos</span>
@@ -769,6 +854,33 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
                 >
                   {showAddQuestion ? 'Fechar Formulário' : '+ Adicionar Questão'}
                 </button>
+                <div className="relative">
+                  <input 
+                    type="file" 
+                    accept=".doc,.docx,.xls,.xlsx,.pdf,image/png,image/jpeg,image/webp,.txt" 
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    disabled={isUploading}
+                  />
+                  <button 
+                    onClick={() => {
+                        if (!moduleFilter) {
+                           alert("Por favor, selecione um MÓDULO específico no filtro ao lado (Selecione a Matéria e então o Módulo) antes de enviar o arquivo de questões.");
+                           return;
+                        }
+                        fileInputRef.current?.click();
+                    }}
+                    disabled={isUploading}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold ${isUploading ? 'bg-zinc-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'} text-white shadow-lg text-sm transition-colors`}
+                  >
+                    {isUploading ? (
+                      <span className="flex items-center gap-2"><ArrowLeft size={16} className="animate-spin" /> Processando IA...</span>
+                    ) : (
+                      <span className="flex items-center gap-2"><Upload size={16} /> Importar Arquivo (IA)</span>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -831,7 +943,7 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {newQuestion.options.map((opt, idx) => (
                     <div key={idx} className="space-y-2">
                       <label className="text-xs font-bold uppercase text-zinc-500">Opção {idx + 1}</label>
@@ -1189,40 +1301,53 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
             
             <div className={`p-6 rounded-2xl border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
               <h4 className="font-bold mb-4 flex items-center gap-2">
-                <Globe size={18} className="text-blue-500" /> Domínio: provas.deioinfo.com.br
+                <Globe size={18} className="text-blue-500" /> Domínio Principal: provas.deioinfo.com.br
               </h4>
               
               <div className="space-y-4 text-sm font-medium">
                 <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20">
-                  <p className="font-bold text-blue-600 mb-1">Passo 1: DNS</p>
-                  <p>Aponte o domínio <strong>provas.deioinfo.com.br</strong> (tipo A) para o IP do seu servidor: <strong>128.140.1.235</strong></p>
+                  <p className="font-bold text-blue-600 mb-1">Passo 1: Zona DNS da Cloudflare (ou provedor de domínio)</p>
+                  <p>Aponte o domínio <strong>provas.deioinfo.com.br</strong> criando uma entrada do tipo <strong>A</strong> apontando para o IP do seu servidor: <strong>128.140.1.235</strong></p>
+                  <p className="text-xs text-blue-500/70 mt-1">Dica: Se usar Cloudflare, deixe a nuvenzinha ligada (Proxied) para habilitar o SSL gratuitamente.</p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-orange-500/5 border border-orange-500/20">
+                  <p className="font-bold text-orange-600 mb-1">Passo 2: Baixando os Arquivos para o Servidor</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Exporte o projeto usando a opção <strong>Export to GitHub</strong> ou <strong>Download ZIP</strong>.</li>
+                    <li>No aaPanel, vá em <strong>Files</strong> e faça o upload/clone do projeto para <code>/www/wwwroot/provas.deioinfo.com.br</code></li>
+                    <li><em>Não se esqueça de copiar o arquivo <code className="bg-orange-500/20 px-1 rounded">firebase-applet-config.json</code> se houver, pois ele guarda a conexão com o banco!</em></li>
+                  </ul>
                 </div>
 
                 <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20">
-                  <p className="font-bold text-purple-600 mb-1">Passo 2: aaPanel Node.js Manager</p>
+                  <p className="font-bold text-purple-600 mb-1">Passo 3: Configurando no Node.js Manager (aaPanel)</p>
                   <ul className="list-disc list-inside space-y-1">
-                    <li>Vá em **App Store** {"->"} **Node.js Manager**.</li>
-                    <li>Clique em **Add project**.</li>
-                    <li>Escolha o diretório onde o código foi baixado.</li>
-                    <li>Configure o **Run Command** como <code>npm run start</code>.</li>
-                    <li>Configure a porta para <code>3000</code>.</li>
+                    <li>Abra o <strong>App Store</strong> e encontre o <strong>Node.js Manager</strong>.</li>
+                    <li>Clique em <strong>Add project</strong>.</li>
+                    <li><strong>Project directory:</strong> <code>/www/wwwroot/provas.deioinfo.com.br</code></li>
+                    <li><strong>Run command:</strong> <code>npm run build && npm run start</code> (ou apenas <code>npm run start</code> se já buildou).</li>
+                    <li><strong>Port:</strong> <code>3000</code>.</li>
+                    <li>Em <em>Domain</em>, coloque <code>provas.deioinfo.com.br</code> para o painel já criar o proxy reverso.</li>
                   </ul>
                 </div>
 
                 <div className="p-4 rounded-xl bg-green-500/5 border border-green-500/20">
-                  <p className="font-bold text-green-600 mb-1">Passo 3: Como atualizar questões e o App</p>
-                  <p className="mb-2">Como estamos usando banco de dados externo, as questões que você alterar neste painel são atualizadas **instantaneamente** para todos!</p>
-                  <p>Para atualizar o visual do App:</p>
-                  <ol className="list-decimal list-inside space-y-1">
-                    <li>Use a função **Export to GitHub** no menu lateral do AI Studio.</li>
-                    <li>No aaPanel, dentro do projeto Node, clique em **Git Pull** para baixar a nova versão.</li>
+                  <p className="font-bold text-green-600 mb-1">Passo 4: Atualizando as Questões e o Visual</p>
+                  <p className="mb-2"><strong>Questões e Simulados:</strong> Como usamos um banco Firebase externo, qualquer questão que você alterar neste painel atualizará para todos <strong>imediatamente</strong> sem precisar fazer deploy novamente.</p>
+                  <p><strong>Atualizações de Código/Design:</strong></p>
+                  <ol className="list-decimal list-inside space-y-1 text-zinc-500">
+                    <li>Faça o export do código novo para o GitHub.</li>
+                    <li>No aaPanel (Node.js Manager), vá no seu projeto configurado e clique em <strong>Git Pull</strong>.</li>
+                    <li>Reinicie o App Node.js para que as novidades entrem no ar.</li>
                   </ol>
                 </div>
               </div>
             </div>
 
-            <div className={`p-6 rounded-2xl border border-dashed text-center ${theme === 'dark' ? 'border-zinc-800' : 'border-zinc-200'}`}>
-              <p className="text-zinc-500 text-sm">Seu app está pronto para rodar profissionalmente.</p>
+            <div className={`p-4 rounded-xl border border-dashed flex items-center justify-center gap-2 ${theme === 'dark' ? 'border-zinc-800 bg-zinc-900/50' : 'border-zinc-300 bg-zinc-50'}`}>
+              <CheckCircle2 size={18} className="text-green-500" />
+              <p className="text-zinc-600 dark:text-zinc-400 text-sm font-bold">Seu aplicativo está com arquitetura pronta para milhões de acessos devido ao Firestore Serverless.</p>
             </div>
           </div>
         ) : null}

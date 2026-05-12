@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, User, Target, BarChart2, CheckCircle, XCircle, Clock, LogOut, Camera, Edit2, Save, X, Eye, EyeOff, Trophy, List } from 'lucide-react';
+import { Logo } from './Logo';
 import { calculateAge } from './LoginScreen';
 import { 
   getUserProfile, 
@@ -208,9 +209,9 @@ export function StudentDashboard({ onBack, theme, userEmail: userUid }: { onBack
                   </div>
                 </div>
               ) : (
-                <div>
-                  <h2 className="text-2xl font-black tracking-tight">{userProfile.fullName}</h2>
-                  <p className="text-sm font-medium text-zinc-400">@{userProfile.username} • {calculateAge(userProfile.birthDate)} anos</p>
+                <div className="flex flex-col">
+                  <Logo size="sm" variant="full" />
+                  <p className="text-sm font-medium text-zinc-400 mt-1">{userProfile.fullName} • @{userProfile.username}</p>
                 </div>
               )}
             </div>

@@ -34,6 +34,263 @@ export interface Module {
 }
 
 export const questionDatabase: Record<string, Subject> = {
+  "ingles": {
+    "title": "Inglês",
+    "id": "ingles",
+    "icon": "🗣️",
+    "color": "blue",
+    "modules": {
+      "greetings": {
+        "title": "Greetings (Pronúncia)",
+        "description": "Aprenda a falar corretamente com áudio.",
+        "studyContent": "Toque no botão de som para ouvir a pronúncia correta!\n\n**Greetings (Cumprimentos)**\n\n* **Hello:** Olá\n* **Hi:** Oi\n* **Good morning:** Bom dia\n* **How are you?** Como vai você?",
+        "questions": [
+          {
+            "id": 10101,
+            "type": "choice",
+            "question": "O que significa 'Hello'?",
+            "options": ["Oi", "Olá", "Tchau"],
+            "correct": "Olá",
+            "explanation": "Hello é uma forma clássica de dizer Olá. Clique no ícone de som no topo para ouvir!",
+            "difficulty": "Fácil"
+          },
+          {
+            "id": 10102,
+            "type": "choice",
+            "question": "O que significa 'Hello'?",
+            "options": ["Oi", "Olá", "Tchau"],
+            "correct": "Olá",
+            "explanation": "Hello é uma forma comum de dizer Olá.",
+            "difficulty": "Fácil"
+          },
+          {
+            "id": 10103,
+            "type": "choice",
+            "question": "Qual a resposta correta para 'What is your name?'",
+            "options": ["My name is Peter", "I am 10 years old", "Yes, please"],
+            "correct": "My name is Peter",
+            "explanation": "Respondemos o nome usando 'My name is...'.",
+            "difficulty": "Fácil"
+          },
+          {
+            "id": 10104,
+            "type": "choice",
+            "question": "Como dizemos 'Tchau' em inglês?",
+            "options": ["Hi", "Goodbye", "Hello"],
+            "correct": "Goodbye",
+            "explanation": "Goodbye é usado para se despedir.",
+            "difficulty": "Fácil"
+          }
+        ]
+      },
+      "colors": {
+        "title": "Colors (Cores)",
+        "description": "Descubra os nomes das cores em inglês.",
+        "studyContent": "**Colors (Cores)**\n\n* **Red:** Vermelho\n* **Blue:** Azul\n* **Green:** Verde\n* **Yellow:** Amarelo\n* **Orange:** Laranja\n* **Purple:** Roxo\n* **Black:** Preto\n* **White:** Branco\n* **Pink:** Rosa",
+        "questions": [
+          {
+            "id": 10201,
+            "type": "choice",
+            "question": "Qual é a cor 'Blue'?",
+            "options": ["Verde", "Azul", "Vermelho"],
+            "correct": "Azul",
+            "explanation": "Blue é a cor do céu e do mar.",
+            "difficulty": "Fácil"
+          },
+          {
+            "id": 10202,
+            "type": "choice",
+            "question": "Como se escreve 'Amarelo' em inglês?",
+            "options": ["Yellow", "Red", "Green"],
+            "correct": "Yellow",
+            "explanation": "Yellow é a cor do sol.",
+            "difficulty": "Fácil"
+          },
+          {
+            "id": 10203,
+            "type": "choice",
+            "question": "Qual cor é formada pela mistura de Red e Yellow?",
+            "options": ["Green", "Orange", "Purple"],
+            "correct": "Orange",
+            "explanation": "Red + Yellow = Orange (Laranja).",
+            "difficulty": "Moderado"
+          },
+          {
+            "id": 10204,
+            "type": "choice",
+            "question": "Qual é a cor da maçã (geralmente)?",
+            "options": ["Blue", "Red", "Black"],
+            "correct": "Red",
+            "explanation": "A maçã é Red (Vermelha).",
+            "difficulty": "Fácil"
+          }
+        ]
+      },
+      "numbers": {
+        "title": "Numbers 1-10",
+        "description": "Aprenda a contar até dez em inglês.",
+        "studyContent": "**Numbers (Números)**\n\n1 - **One**\n2 - **Two**\n3 - **Three**\n4 - **Four**\n5 - **Five**\n6 - **Six**\n7 - **Seven**\n8 - **Eight**\n9 - **Nine**\n10 - **Ten**",
+        "questions": [
+          {
+            "id": 10301,
+            "type": "choice",
+            "question": "Qual número é o 'Three'?",
+            "options": ["2", "3", "5"],
+            "correct": "3",
+            "explanation": "One, Two, Three (1, 2, 3).",
+            "difficulty": "Fácil"
+          },
+          {
+            "id": 10302,
+            "type": "choice",
+            "question": "Como se diz 'Cinco' em inglês?",
+            "options": ["Four", "Five", "Six"],
+            "correct": "Five",
+            "explanation": "Five significa cinco.",
+            "difficulty": "Fácil"
+          },
+          {
+            "id": 10303,
+            "type": "choice",
+            "question": "Quanto é 'Two + Two'?",
+            "options": ["Three", "Four", "Five"],
+            "correct": "Four",
+            "explanation": "2 + 2 = 4 (Four).",
+            "difficulty": "Moderado"
+          },
+          {
+            "id": 10304,
+            "type": "choice",
+            "question": "E sete? Como se diz?",
+            "options": ["Seven", "Six", "Eight"],
+            "correct": "Seven",
+            "explanation": "Seven é sete.",
+            "difficulty": "Fácil"
+          }
+        ]
+      },
+      "family": {
+        "title": "My Family",
+        "description": "Conheça os membros da família em inglês.",
+        "studyContent": "**Family Members (Membros da Família)**\n\n* **Father (Dad):** Pai / Papai\n* **Mother (Mom):** Mãe / Mamãe\n* **Brother:** Irmão\n* **Sister:** Irmã\n* **Grandfather (Grandpa):** Avô / Vovô\n* **Grandmother (Grandma):** Avó / Vovó\n* **Baby:** Bebê",
+        "questions": [
+          {
+            "id": 10401,
+            "type": "choice",
+            "question": "Quem é a 'Mother'?",
+            "options": ["Pai", "Irmã", "Mãe"],
+            "correct": "Mãe",
+            "explanation": "Mother significa mãe.",
+            "difficulty": "Fácil"
+          },
+          {
+            "id": 10402,
+            "type": "choice",
+            "question": "Como se diz 'Irmão' em inglês?",
+            "options": ["Sister", "Brother", "Father"],
+            "correct": "Brother",
+            "explanation": "Brother é o irmão.",
+            "difficulty": "Fácil"
+          },
+          {
+            "id": 10403,
+            "type": "choice",
+            "question": "Seu pai é o seu...",
+            "options": ["Father", "Mother", "Grandpa"],
+            "correct": "Father",
+            "explanation": "Father é pai.",
+            "difficulty": "Fácil"
+          },
+          {
+            "id": 10404,
+            "type": "choice",
+            "question": "Qual é a irmã?",
+            "options": ["Sister", "Brother", "Baby"],
+            "correct": "Sister",
+            "explanation": "Sister é a irmã.",
+            "difficulty": "Fácil"
+          }
+        ]
+      },
+      "animals": {
+        "title": "Animals (Animais)",
+        "description": "Aprenda os nomes de alguns animais comuns.",
+        "studyContent": "**Common Animals (Animais Comuns)**\n\n* **Dog:** Cachorro\n* **Cat:** Gato\n* **Bird:** Pássaro\n* **Fish:** Peixe\n* **Lion:** Leão\n* **Elephant:** Elefante\n* **Monkey:** Macaco\n* **Rabbit:** Coelho",
+        "questions": [
+          {
+            "id": 10501,
+            "type": "choice",
+            "question": "Como se diz 'Cachorro'?",
+            "options": ["Cat", "Dog", "Bird"],
+            "correct": "Dog",
+            "explanation": "Dog é cachorro.",
+            "difficulty": "Fácil"
+          },
+          {
+            "id": 10502,
+            "type": "choice",
+            "question": "Que animal faz 'Miau'?",
+            "options": ["Dog", "Cat", "Fish"],
+            "correct": "Cat",
+            "explanation": "Cat é o gato.",
+            "difficulty": "Fácil"
+          },
+          {
+            "id": 10503,
+            "type": "choice",
+            "question": "Qual destes vive na água?",
+            "options": ["Bird", "Rabbit", "Fish"],
+            "correct": "Fish",
+            "explanation": "Fish é o peixe e vive na água.",
+            "difficulty": "Fácil"
+          },
+          {
+            "id": 10504,
+            "type": "choice",
+            "question": "Quem é o 'Rei da Selva'?",
+            "options": ["Elephant", "Lion", "Monkey"],
+            "correct": "Lion",
+            "explanation": "Lion é o leão.",
+            "difficulty": "Fácil"
+          }
+        ]
+      },
+      "verb_to_be": {
+        "title": "Verb To Be",
+        "description": "Aprenda a usar o verbo to be (am, is, are).",
+        "studyContent": "**Verb To Be**\nO verbo 'to be' significa 'ser' ou 'estar'.\nI am (Eu sou/estou)\nYou are (Você é/está)\nHe/She/It is (Ele/Ela é/está)\nWe are (Nós somos/estamos)\nThey are (Eles/Elas são/estão)",
+        "questions": [
+           {
+             "id": 10001,
+             "type": "choice",
+             "question": "Qual é a forma correta para 'I'?",
+             "options": ["am", "is", "are"],
+             "correct": "am",
+             "explanation": "Usamos 'am' com 'I' (Eu).",
+             "difficulty": "Fácil"
+           },
+           {
+             "id": 10002,
+             "type": "choice",
+             "question": "Escolha a opção correta: She ___ my friend.",
+             "options": ["am", "is", "are"],
+             "correct": "is",
+             "explanation": "Usamos 'is' para He, She, It (Ele, Ela).",
+             "difficulty": "Fácil"
+           },
+           {
+             "id": 10003,
+             "type": "choice",
+             "question": "E para 'They'?",
+             "options": ["am", "is", "are"],
+             "correct": "are",
+             "explanation": "Usamos 'are' para You, We, They.",
+             "difficulty": "Fácil"
+           }
+        ]
+      }
+    }
+  },
   "portugues": {
     "title": "Português",
     "id": "portugues",

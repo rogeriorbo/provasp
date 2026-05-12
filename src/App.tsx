@@ -1,5 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, CheckCircle, AlertCircle, Trophy, Home, ArrowRight, ArrowLeft, SkipForward, Volume2, Send, Moon, Sun, X, Check } from 'lucide-react';
+import { 
+  BookOpen, 
+  CheckCircle, 
+  AlertCircle, 
+  Trophy, 
+  Home, 
+  ArrowRight, 
+  ArrowLeft, 
+  SkipForward, 
+  Volume2, 
+  Send, 
+  Moon, 
+  Sun, 
+  X, 
+  Check,
+  Languages
+} from 'lucide-react';
+
+const handleSpeak = (text: string) => {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
+  }
+};
 import { motion, AnimatePresence } from 'motion/react';
 import { periodDatabases, Question, Subject } from './data/questions';
 import ReactMarkdown from 'react-markdown';
@@ -7,6 +33,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { StudentDashboard } from './components/StudentDashboard';
 
 import { LoginScreen } from './components/LoginScreen';
+import { Logo } from './components/Logo';
 import { saveResult, getMe, getQuestionsData, getUserResults, UserProfile, ResultRecord } from './lib/api';
 
 /**
@@ -74,6 +101,7 @@ export default function App() {
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
   const [selectedDifficulty, setSelectedDifficulty] = useState<'Fácil' | 'Moderado' | 'Difícil' | 'Todos'>('Todos');
+  const [quizLength, setQuizLength] = useState<number>(30);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('theme') as 'light' | 'dark' || 'light';
@@ -224,7 +252,7 @@ export default function App() {
     if (allQuestions.length === 0) return;
 
     const excludeTexts = getPreviouslyAnsweredTexts();
-    const sessionQuestions = getRandomQuestions(allQuestions, 30, excludeTexts);
+    const sessionQuestions = getRandomQuestions(allQuestions, quizLength, excludeTexts);
     
     setActiveSession({
       title: `Simulado: ${subject.title}`,
@@ -250,7 +278,7 @@ export default function App() {
     if (allQuestions.length === 0) return;
 
     const excludeTexts = getPreviouslyAnsweredTexts();
-    const sessionQuestions = getRandomQuestions(allQuestions, 30, excludeTexts);
+    const sessionQuestions = getRandomQuestions(allQuestions, quizLength, excludeTexts);
     
     setActiveSession({
       title: "Simulado Geral Customizado",
@@ -419,7 +447,7 @@ export default function App() {
       </div>
 
       <motion.div 
-        className="relative z-10 max-w-5xl mx-auto min-h-screen flex flex-col px-4 sm:px-6 lg:px-8 py-8"
+        className={`relative z-10 mx-auto min-h-screen flex flex-col ${screen === 'login' ? 'w-full max-w-none px-0 py-0' : 'max-w-5xl px-4 sm:px-6 lg:px-8 py-8'}`}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
@@ -427,14 +455,13 @@ export default function App() {
         {screen !== 'login' && (
         <header className="flex items-center justify-between mb-12">
           <div className="flex items-center gap-3">
-            <div className={`p-2.5 rounded-xl ${theme === 'dark' ? 'bg-zinc-800' : 'bg-white shadow-sm border border-zinc-100'}`}>
-              <BookOpen size={24} className="text-blue-600" />
-            </div>
+            <Logo size="sm" />
+            <div className="h-8 w-px bg-zinc-200 dark:bg-zinc-800 mx-1" />
             <div>
-              <h1 className="text-xl font-display font-black tracking-tight uppercase">
-                Prova <span className="text-blue-600 inline-block ml-1">{selectedPeriod.toUpperCase()}</span>
+              <h1 className="text-sm font-display font-black tracking-widest uppercase opacity-50">
+                {selectedPeriod.toUpperCase()}
               </h1>
-              <p className="text-[10px] font-bold text-zinc-400 tracking-[0.25em] uppercase leading-none mt-1">Plano de Estudos</p>
+              <p className="text-[10px] font-bold text-zinc-400 tracking-[0.25em] uppercase leading-none mt-1">Acelerando seu Futuro</p>
             </div>
           </div>
 
@@ -591,7 +618,7 @@ export default function App() {
                             </div>
                             <div>
                               <span className="block font-black uppercase tracking-[0.15em] text-[10px] mb-1.5 text-blue-600">Conteúdo Completo</span>
-                              <h3 className="text-xl font-display font-bold">Simulado Misto {selectedPeriod.toUpperCase()}</h3>
+                              <h3 className="text-xl font-display font-bold">Simulado Misto Aprende+</h3>
                               <p className="text-xs text-zinc-400 font-medium">Mistura randômica de todas as matérias</p>
                             </div>
                             <div className="ml-auto flex items-center gap-3">
@@ -758,11 +785,21 @@ export default function App() {
 
                 <div className={`rounded-[40px] p-8 md:p-12 border-2 transition-all ${theme === 'dark' ? 'bg-zinc-900/50 border-zinc-800' : 'bg-white border-zinc-50 shadow-2xl shadow-blue-600/5'}`}>
                   <div className="max-w-none prose prose-zinc dark:prose-invert">
-                    <div className="flex items-center gap-4 mb-10">
-                      <div className="p-4 bg-blue-600/10 rounded-2xl text-blue-600">
-                        <BookOpen size={32} />
+                    <div className="flex items-center justify-between mb-10">
+                      <div className="flex items-center gap-4">
+                        <div className="p-4 bg-blue-600/10 rounded-2xl text-blue-600">
+                          <BookOpen size={32} />
+                        </div>
+                        <h3 className="text-2xl font-display font-black m-0">Explicação Didática</h3>
                       </div>
-                      <h3 className="text-2xl font-display font-black m-0">Explicação Didática</h3>
+                      {activeModule.subjectTitle.toLowerCase().includes('inglês') && (
+                        <button 
+                          onClick={() => handleSpeak(activeModule.studyContent || '')}
+                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-600/20 font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all"
+                        >
+                          <Volume2 size={16} /> Ouvir Lição
+                        </button>
+                      )}
                     </div>
                     
                     <div className={`text-lg md:text-xl space-y-6 leading-relaxed ${theme === 'dark' ? 'text-zinc-300' : 'text-zinc-600'}`}>
@@ -834,6 +871,21 @@ export default function App() {
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-3">
+                    <div className={`p-1 flex rounded-xl border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-zinc-100'}`}>
+                      {([10, 20, 30, 40, 50] as const).map((len) => (
+                        <button
+                          key={len}
+                          onClick={() => setQuizLength(len)}
+                          className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                            quizLength === len 
+                              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'
+                          }`}
+                        >
+                          {len} Q
+                        </button>
+                      ))}
+                    </div>
                     <button 
                         onClick={() => {
                         if (selectedSubject === 'all') {
@@ -1028,7 +1080,16 @@ export default function App() {
                 </div>
 
                 {/* Content Area */}
-                <div className={`p-10 rounded-[48px] border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-50 shadow-2xl shadow-blue-600/5'}`}>
+                <div className={`p-10 rounded-[48px] border relative ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-50 shadow-2xl shadow-blue-600/5'}`}>
+                  {selectedSubject === 'ingles' && (
+                    <button 
+                      onClick={() => handleSpeak(activeSession.questions[currentQuestion].question)}
+                      className="absolute top-6 right-6 p-4 bg-blue-600 text-white rounded-2xl shadow-xl shadow-blue-600/20 active:scale-90 transition-all z-10"
+                      title="Ouvir Pergunta"
+                    >
+                      <Volume2 size={24} />
+                    </button>
+                  )}
                   <h2 className="text-2xl font-display font-black leading-tight mb-10 text-center">
                     {activeSession.questions[currentQuestion].question}
                   </h2>
@@ -1283,8 +1344,9 @@ export default function App() {
         </div>
 
         {screen !== 'login' && (
-        <footer className="mt-16 text-center pb-8 opacity-20 hover:opacity-100 transition-opacity">
-           <p className="text-[10px] font-black uppercase tracking-[0.5em]">Eduque • Inove • Divirta-se</p>
+        <footer className="mt-16 text-center pb-8 opacity-20 hover:opacity-100 transition-opacity flex flex-col items-center gap-4">
+           <Logo size="sm" variant="full" className="grayscale opacity-50" />
+           <p className="text-[10px] font-black uppercase tracking-[0.5em]">Eduque • Inove • Transforme</p>
         </footer>
         )}
       </motion.div>

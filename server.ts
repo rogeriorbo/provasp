@@ -6,6 +6,9 @@ import knex from "knex";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import multer from "multer";
+import { GoogleGenAI } from "@google/genai";
+import fs from "fs";
 
 dotenv.config();
 
@@ -20,6 +23,7 @@ const dbConfig = {
     user: process.env.DB_USER,
     password: process.env.DB_PASS,
     database: process.env.DB_NAME,
+    charset: 'utf8mb4',
     connectTimeout: 10000, 
   },
   pool: { min: 0, max: 7 },
@@ -39,6 +43,12 @@ async function bootstrap() {
 
   app.use(cors());
   app.use(express.json({ limit: '50mb' }));
+
+  const upload = multer({ dest: 'uploads/' });
+  let ai: GoogleGenAI | null = null;
+  if (process.env.GEMINI_API_KEY) {
+    ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  }
 
   // API Routes
 
@@ -135,65 +145,81 @@ async function bootstrap() {
         console.log('Tabela "questions" criada com sucesso.');
       }
 
-      // Importar dados iniciais se as tabelas estiverem vazias
-      const subjectCount = await db('subjects').count('id as count').first();
-      if ((subjectCount as any).count === 0) {
-        console.log('Populando banco de dados com questões iniciais...');
-        try {
-          // Import dinâmico da base de dados estática
-          // Usando o path correto do arquivo TS
-          const questionsPath = path.join(process.cwd(), 'src/data/questions.ts');
-          const { periodDatabases } = await import(questionsPath);
-          const initialData = periodDatabases.p2; // Usamos o P2 como base inicial
-          
-          for (const [subjKey, subjData] of Object.entries(initialData)) {
+      // Importar ou Sincronizar dados do banco de questões
+      try {
+        const questionsPath = path.join(process.cwd(), 'src/data/questions.ts');
+        const { periodDatabases } = await import(questionsPath);
+        const sourceData = periodDatabases.p2; 
+        
+        console.log('[DB] Sincronizando banco de questões...');
+        
+        for (const [subjKey, subjData] of Object.entries(sourceData)) {
+          // Verificar se matéria existe
+          let subject = await db('subjects').where({ id: subjKey }).first();
+          if (!subject) {
             await db('subjects').insert({
               id: subjKey,
               title: (subjData as any).title,
               icon: (subjData as any).icon,
               color: (subjData as any).color
             });
+            console.log(`[DB] Matéria criada: ${subjKey}`);
+          } else {
+            // Update icon and title if they changed
+            await db('subjects').where({ id: subjKey }).update({
+              title: (subjData as any).title,
+              icon: (subjData as any).icon,
+              color: (subjData as any).color
+            });
+            console.log(`[DB] Matéria atualizada: ${subjKey} (Icon: ${(subjData as any).icon})`);
+          }
 
-            for (const [modKey, modData] of Object.entries((subjData as any).modules)) {
-              const [moduleId] = await db('modules').insert({
+          for (const [modKey, modData] of Object.entries((subjData as any).modules)) {
+            // Verificar se módulo existe
+            let module = await db('modules').where({ subjectId: subjKey, moduleKey: modKey }).first();
+            let moduleId;
+            
+            if (!module) {
+              const [id] = await db('modules').insert({
                 subjectId: subjKey,
                 moduleKey: modKey,
                 title: (modData as any).title,
                 description: (modData as any).description,
                 studyContent: (modData as any).studyContent,
-                videoUrl: (modData as any).videoUrl
+                videoUrl: (modData as any).videoUrl,
+                period: 'P2'
               });
+              moduleId = id;
+              console.log(`[DB] Módulo criado: ${modKey} em ${subjKey}`);
+            } else {
+              moduleId = module.id;
+            }
 
-              const baseQuestions = (modData as any).questions;
-              const questionsToInsert = baseQuestions.map((q: any) => ({
-                moduleId,
-                type: q.type,
-                question: q.question,
-                options: JSON.stringify(q.options || []),
-                correct: q.correct,
-                explanation: q.explanation,
-                difficulty: q.difficulty
-              }));
-
-              // Aumentar a quantidade: Se tivermos poucas questões, vamos gerar algumas variações simples
-              // (Isso atende ao pedido do usuário de aumentar a quantidade)
-              if (questionsToInsert.length > 0 && questionsToInsert.length < 15) {
-                const clones = questionsToInsert.map((q: any) => ({
-                    ...q,
-                    question: q.question + " (Revisão)",
-                }));
-                questionsToInsert.push(...clones);
-              }
-
-              if (questionsToInsert.length > 0) {
-                await db('questions').insert(questionsToInsert);
+            // Sincronizar questões (apenas as que não existem via texto da pergunta)
+            const baseQuestions = (modData as any).questions;
+            for (const q of baseQuestions) {
+              const existingQ = await db('questions').where({ 
+                moduleId, 
+                question: q.question 
+              }).first();
+              
+              if (!existingQ) {
+                await db('questions').insert({
+                  moduleId,
+                  type: q.type,
+                  question: q.question,
+                  options: JSON.stringify(q.options || []),
+                  correct: q.correct,
+                  explanation: q.explanation,
+                  difficulty: q.difficulty
+                });
               }
             }
           }
-          console.log('Dados iniciais importados com sucesso!');
-        } catch (err) {
-          console.error('Erro ao importar dados iniciais:', err);
         }
+        console.log('[DB] Sincronização concluída!');
+      } catch (err) {
+        console.error('[DB] Erro na sincronização:', err);
       }
 
       const hasResults = await db.schema.hasTable('results');
@@ -220,7 +246,6 @@ async function bootstrap() {
       }
     }
   };
-  await initDb();
   
   // Health check
   app.get("/api/health", async (req, res) => {
@@ -509,6 +534,86 @@ async function bootstrap() {
     }
   });
 
+  app.post("/api/upload-questions", checkTeacher, upload.single('file'), async (req, res) => {
+    try {
+      if (!ai) {
+         return res.status(500).json({ message: "Gemini AI não está configurado." });
+      }
+      const { moduleId } = req.body;
+      if (!moduleId) {
+         return res.status(400).json({ message: "moduleId é obrigatório." });
+      }
+      
+      const file = req.file;
+      if (!file) {
+         return res.status(400).json({ message: "Nenhum arquivo enviado." });
+      }
+
+      console.log(`[Upload] Processando arquivo: ${file.originalname}`);
+
+      // Usar a API FileManager do Gemini 
+      const uploadResp = await ai.files.upload({
+        file: file.path,
+        mimeType: file.mimetype,
+      });
+
+      const prompt = `Você é um professor extraindo questões de um arquivo.
+O usuário quer adicionar estas questões a um módulo do sistema.
+Por favor, analise o documento fornecido e extraia TODAS as questões de múltipla escolha. Se houver outro tipo de questão, adapte para múltipla escolha.
+CRÍTICO:
+1. Retorne APENAS um JSON array.
+2. Cada questão OBRIGATORIAMENTE DEVE TER EXATAMENTE 4 OPÇÕES DE RESPOSTA (1 correta e 3 erradas). NUNCA mais e NUNCA menos.
+3. Não repita opções, cada uma das 4 opções deve ser única e diferente das outras.
+4. O formato do array de objetos JSON deve ser EXATAMENTE:
+[
+  {
+    "question": "texto da pergunta",
+    "options": ["Opcao A", "Opcao B", "Opcao C", "Opcao D"],
+    "correct": "texto exato da opcao correta (deve existir na lista de options)",
+    "explanation": "Pequena explicacao da resposta certa",
+    "difficulty": "Moderado"
+  }
+]
+`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-pro',
+        contents: [
+            uploadResp,
+            prompt
+        ]
+      });
+
+      let text = response.text || '';
+      text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const newQs: any[] = JSON.parse(text);
+
+      if (Array.isArray(newQs) && newQs.length > 0) {
+           const inserts = newQs.map(q => ({
+             moduleId: Number(moduleId),
+             type: 'choice',
+             question: q.question,
+             options: JSON.stringify(q.options),
+             correct: q.correct,
+             explanation: q.explanation || '',
+             difficulty: q.difficulty || 'Moderado'
+           }));
+           
+           await db('questions').insert(inserts);
+           res.json({ success: true, count: inserts.length });
+      } else {
+           res.status(400).json({ message: "Não foi possível extrair questões válidas do arquivo." });
+      }
+    } catch (error: any) {
+      console.error(error);
+      res.status(500).json({ message: "Erro ao processar arquivo: " + error.message });
+    } finally {
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+    }
+  });
+
   // Modules CRUD
   app.post("/api/modules", checkTeacher, async (req, res) => {
     const { subjectId, moduleKey, title, description, studyContent, videoUrl, period } = req.body;
@@ -638,6 +743,10 @@ async function bootstrap() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    // Initialize DB in background to avoid blocking port binding
+    initDb().catch(err => {
+      console.error('Failed to initialize database in background:', err);
+    });
   });
 }
 
