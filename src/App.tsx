@@ -7,22 +7,34 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { StudentDashboard } from './components/StudentDashboard';
 
 import { LoginScreen } from './components/LoginScreen';
-import { saveResult, getMe, getQuestionsData, UserProfile } from './lib/api';
+import { saveResult, getMe, getQuestionsData, getUserResults, UserProfile, ResultRecord } from './lib/api';
 
 /**
  * Utility to shuffle an array and return a subset
  */
-function getRandomQuestions(questions: Question[], count: number): Question[] {
+function getRandomQuestions(questions: Question[], count: number, excludeTexts: Set<string> = new Set()): Question[] {
   // Deduplicate before selecting questions
   const uniqueQuestions: Question[] = [];
   const seenTexts = new Set<string>();
   
   for (const q of questions) {
     const text = q.question.trim().toLowerCase();
-    if (!seenTexts.has(text)) {
+    if (!excludeTexts.has(text) && !seenTexts.has(text)) {
       seenTexts.add(text);
       uniqueQuestions.push(q);
     }
+  }
+
+  // Se não houver questões suficientes (porque fizemos muito exame e esgotamos as novas), 
+  // tentamos permitir as antigas novamente que não foram duplicadas nesta sessão.
+  if (uniqueQuestions.length < count) {
+     for (const q of questions) {
+        const text = q.question.trim().toLowerCase();
+        if (excludeTexts.has(text) && !seenTexts.has(text)) {
+           seenTexts.add(text);
+           uniqueQuestions.push(q);
+        }
+     }
   }
 
   const shuffled = [...uniqueQuestions].sort(() => 0.5 - Math.random());
@@ -32,7 +44,25 @@ function getRandomQuestions(questions: Question[], count: number): Question[] {
 export default function App() {
   const [selectedPeriod, setSelectedPeriod] = useState<'p1' | 'p2' | 'p3' | 'p4' | 'p5' | 'p6' | 'p7' | 'p8' | 'p9'>('p2');
   const [dbData, setDbData] = useState<Record<string, Subject> | null>(null);
-  const questionDatabase: Record<string, Subject> = dbData || periodDatabases[selectedPeriod];
+  
+  const questionDatabase: Record<string, Subject> = React.useMemo(() => {
+    if (!dbData) return periodDatabases[selectedPeriod];
+    
+    const newDb: Record<string, Subject> = {};
+    for (const [subjKey, subjData] of Object.entries(dbData)) {
+      const filteredModules: any = {};
+      for (const [modKey, modData] of Object.entries(subjData.modules)) {
+        const modPeriod = (modData as any).period?.toLowerCase() || 'p2';
+        if (modPeriod === selectedPeriod.toLowerCase()) {
+          filteredModules[modKey] = modData;
+        }
+      }
+      if (Object.keys(filteredModules).length > 0 || subjData) {
+        newDb[subjKey] = { ...subjData, modules: filteredModules };
+      }
+    }
+    return newDb;
+  }, [dbData, selectedPeriod]);
 
   const [screen, setScreen] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -67,6 +97,7 @@ export default function App() {
   const [dictationInput, setDictationInput] = useState('');
   const [showUnansweredWarning, setShowUnansweredWarning] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [currentUserResults, setCurrentUserResults] = useState<ResultRecord[]>([]);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
 
@@ -78,6 +109,10 @@ export default function App() {
           const user = await getMe();
           if (user) {
             setCurrentUser(user);
+            try {
+              const results = await getUserResults(user.uid);
+              setCurrentUserResults(results);
+            } catch(e) {}
             setScreen('home');
           } else {
             setScreen('login');
@@ -165,6 +200,16 @@ export default function App() {
     }
   };
 
+  const getPreviouslyAnsweredTexts = () => {
+    const seen = new Set<string>();
+    currentUserResults.forEach(res => {
+      res.answersMap.forEach(ans => {
+        if (ans.isCorrect) seen.add(ans.questionText.trim().toLowerCase());
+      });
+    });
+    return seen;
+  };
+
   const startSubjectQuiz = (subjectKey: string, modulesToInclude: string[]) => {
     if (!currentUser) {
       setScreen('login');
@@ -178,7 +223,8 @@ export default function App() {
     
     if (allQuestions.length === 0) return;
 
-    const sessionQuestions = getRandomQuestions(allQuestions, 20);
+    const excludeTexts = getPreviouslyAnsweredTexts();
+    const sessionQuestions = getRandomQuestions(allQuestions, 30, excludeTexts);
     
     setActiveSession({
       title: `Simulado: ${subject.title}`,
@@ -203,7 +249,8 @@ export default function App() {
 
     if (allQuestions.length === 0) return;
 
-    const sessionQuestions = getRandomQuestions(allQuestions, 20);
+    const excludeTexts = getPreviouslyAnsweredTexts();
+    const sessionQuestions = getRandomQuestions(allQuestions, 30, excludeTexts);
     
     setActiveSession({
       title: "Simulado Geral Customizado",

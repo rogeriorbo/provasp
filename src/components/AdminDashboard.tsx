@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Users, Clock, LogOut, BookOpen, User, Edit2, Save, X, Eye, EyeOff, ChevronDown, ChevronUp, Trash2, Globe } from 'lucide-react';
+import { ArrowLeft, Users, Clock, LogOut, BookOpen, User, Edit2, Save, X, Eye, EyeOff, ChevronDown, ChevronUp, Trash2, Globe, BarChart, Settings, HelpCircle, Layers, BookMarked, Server } from 'lucide-react';
 import { calculateAge } from './LoginScreen';
 import { 
   getAllStudents, 
@@ -12,6 +12,9 @@ import {
   saveModule,
   updateModule,
   deleteModule,
+  saveSubject,
+  updateSubject,
+  deleteSubject,
   UserProfile,
   ResultRecord,
   getQuestionsData,
@@ -22,7 +25,7 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
   const [results, setResults] = useState<ResultRecord[]>([]);
   const [students, setStudents] = useState<UserProfile[]>([]);
   const [questionsData, setQuestionsData] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'results' | 'students' | 'questions' | 'modules' | 'settings'>('results');
+  const [activeTab, setActiveTab] = useState<'results' | 'students' | 'questions' | 'modules' | 'subjects' | 'settings'>('results');
   
   const [subjectFilter, setSubjectFilter] = useState('');
   const [moduleFilter, setModuleFilter] = useState<number | 0>(0);
@@ -53,7 +56,18 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
     title: '',
     description: '',
     studyContent: '',
-    videoUrl: ''
+    videoUrl: '',
+    period: 'P2'
+  });
+
+  // Subject Form State
+  const [showAddSubject, setShowAddSubject] = useState(false);
+  const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
+  const [newSubject, setNewSubject] = useState({
+    id: '',
+    title: '',
+    icon: '',
+    color: ''
   });
 
   const [editFullName, setEditFullName] = useState('');
@@ -63,6 +77,7 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
   const [editRole, setEditRole] = useState<'masteradmin' | 'teacher' | 'student'>('student');
 
   const [expandedResultIdx, setExpandedResultIdx] = useState<number | null>(null);
+  const [deleteConfirmResult, setDeleteConfirmResult] = useState<ResultRecord | null>(null);
 
   const fetchAllData = async () => {
     try {
@@ -169,7 +184,8 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
         title: '',
         description: '',
         studyContent: '',
-        videoUrl: ''
+        videoUrl: '',
+        period: 'P2'
       });
       const updatedQuestions = await getQuestionsData();
       setQuestionsData(updatedQuestions);
@@ -186,7 +202,8 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
         title: mod.title,
         description: mod.description || '',
         studyContent: mod.studyContent || '',
-        videoUrl: mod.videoUrl || ''
+        videoUrl: mod.videoUrl || '',
+        period: mod.period || 'P2'
     });
     setShowAddModule(true);
   };
@@ -199,6 +216,57 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
       setQuestionsData(updatedQuestions);
     } catch (e) {
       alert("Erro ao excluir módulo");
+    }
+  };
+
+  const handleAddSubject = async () => {
+    if (!newSubject.title || !newSubject.id) {
+      alert("Preecha os campos obrigatórios (ID/Chave e Título)");
+      return;
+    }
+
+    try {
+      if (editingSubjectId) {
+        await updateSubject(editingSubjectId, newSubject);
+        alert("Matéria atualizada!");
+      } else {
+        await saveSubject(newSubject);
+        alert("Matéria criada!");
+      }
+      setShowAddSubject(false);
+      setEditingSubjectId(null);
+      setNewSubject({
+        id: '',
+        title: '',
+        icon: '',
+        color: ''
+      });
+      const updatedQuestions = await getQuestionsData();
+      setQuestionsData(updatedQuestions);
+    } catch (e) {
+      alert("Erro ao salvar matéria");
+    }
+  };
+
+  const handleEditSubject = (subj: any, subjId: string) => {
+    setEditingSubjectId(subjId);
+    setNewSubject({
+        id: subjId,
+        title: subj.title,
+        icon: subj.icon || '',
+        color: subj.color || ''
+    });
+    setShowAddSubject(true);
+  };
+
+  const handleDeleteSubject = async (id: string) => {
+    if (!confirm("Deseja realmente excluir esta matéria? Todos os módulos e questões vinculados serão apagados!")) return;
+    try {
+      await deleteSubject(id);
+      const updatedQuestions = await getQuestionsData();
+      setQuestionsData(updatedQuestions);
+    } catch (e) {
+      alert("Erro ao excluir matéria");
     }
   };
 
@@ -228,11 +296,16 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
 
   const handleDeleteResult = async (resultToDelete: ResultRecord, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (resultToDelete.id && confirm('Tem certeza que deseja excluir este simulado permanentemente?')) {
+    setDeleteConfirmResult(resultToDelete);
+  };
+
+  const confirmDeleteResult = async () => {
+    if (deleteConfirmResult?.id) {
       try {
-        await deleteResult(resultToDelete.id);
-        setResults(prev => prev.filter(r => r.id !== resultToDelete.id));
+        await deleteResult(deleteConfirmResult.id);
+        setResults(prev => prev.filter(r => r.id !== deleteConfirmResult.id));
         setExpandedResultIdx(null);
+        setDeleteConfirmResult(null);
       } catch (error) {
         console.error(error);
         alert("Erro ao excluir simulado.");
@@ -248,34 +321,88 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="max-w-6xl mx-auto w-full space-y-8 pb-12"
+      className="w-full flex justify-center pb-12"
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={onBack}
-            className={`p-3 rounded-xl transition-colors ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-100' : 'bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-900'}`}
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h2 className="text-2xl font-black tracking-tight flex items-center gap-2">
-              <Users className="text-blue-500" /> Painel do Professor
-            </h2>
-            <p className="text-sm font-medium text-zinc-400">Acompanhamento de simulados e alunos</p>
+      <div className="w-full max-w-6xl flex flex-col lg:flex-row gap-8">
+        
+        {/* Modern Sidebar */}
+        <div className="w-full lg:w-64 shrink-0 flex flex-col gap-6">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={onBack}
+              className={`p-3 rounded-xl transition-colors ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-100' : 'bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-900'}`}
+              title="Voltar"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h2 className="text-xl font-black tracking-tight flex items-center gap-2">
+                Painel Admin
+              </h2>
+              <p className="text-[10px] uppercase tracking-wider font-bold text-zinc-400">Plataforma</p>
+            </div>
           </div>
+
+          <div className={`flex flex-col gap-1 p-3 rounded-2xl border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+            <p className="text-[10px] font-black tracking-widest uppercase text-zinc-400 px-3 py-2">Visão Geral</p>
+            <button
+              onClick={() => setActiveTab('results')}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'results' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-black/5 dark:hover:bg-white/5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'}`}
+            >
+              <BarChart size={16} /> Dashboard
+            </button>
+            <button
+              onClick={() => setActiveTab('students')}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'students' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-black/5 dark:hover:bg-white/5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'}`}
+            >
+              <Users size={16} /> Alunos
+            </button>
+
+            <div className="h-px w-full bg-zinc-200 dark:bg-zinc-800 my-2" />
+
+            <p className="text-[10px] font-black tracking-widest uppercase text-zinc-400 px-3 py-2">Conteúdo</p>
+            <button
+              onClick={() => setActiveTab('subjects')}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'subjects' ? 'bg-purple-600 text-white shadow-md' : 'hover:bg-black/5 dark:hover:bg-white/5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'}`}
+            >
+              <BookMarked size={16} /> Matérias
+            </button>
+            <button
+              onClick={() => setActiveTab('modules')}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'modules' ? 'bg-purple-600 text-white shadow-md' : 'hover:bg-black/5 dark:hover:bg-white/5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'}`}
+            >
+              <Layers size={16} /> Módulos
+            </button>
+            <button
+              onClick={() => setActiveTab('questions')}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'questions' ? 'bg-purple-600 text-white shadow-md' : 'hover:bg-black/5 dark:hover:bg-white/5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'}`}
+            >
+              <HelpCircle size={16} /> Banco de Questões
+            </button>
+
+            <div className="h-px w-full bg-zinc-200 dark:bg-zinc-800 my-2" />
+            
+            <p className="text-[10px] font-black tracking-widest uppercase text-zinc-400 px-3 py-2">Sistema</p>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'settings' ? 'bg-zinc-800 text-white shadow-md dark:bg-white dark:text-black' : 'hover:bg-black/5 dark:hover:bg-white/5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'}`}
+            >
+              <Server size={16} /> Hospedagem & Deploy
+            </button>
+          </div>
+
+          <button 
+             onClick={handleLogout}
+             className={`flex items-center justify-center gap-2 w-full px-4 py-3 text-sm font-bold rounded-2xl transition-colors ${theme === 'dark' ? 'bg-red-950/30 hover:bg-red-900/50 text-red-400' : 'bg-red-50 hover:bg-red-100 text-red-600'}`}
+          >
+             <LogOut size={16} /> Sair do Painel
+          </button>
         </div>
 
-        <button 
-            onClick={handleLogout}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-xl transition-colors ${theme === 'dark' ? 'bg-red-950/30 hover:bg-red-900/50 text-red-400' : 'bg-red-50 hover:bg-red-100 text-red-600'}`}
-        >
-            <LogOut size={16} /> Sair
-        </button>
-      </div>
-
-      {selectedStudent ? (
-        <div className="space-y-8 animate-in slide-in-from-bottom-4 mt-4">
+        {/* Content Area */}
+        <div className="flex-1 w-full min-w-0">
+          {selectedStudent ? (
+        <div className="space-y-8 animate-in slide-in-from-bottom-4">
           <div className="flex items-center gap-4">
             <button 
               onClick={() => { setSelectedStudent(null); setIsEditingStudent(false); setExpandedResultIdx(null); }}
@@ -458,64 +585,157 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
             )}
           </div>
         </div>
-      ) : (
-        <>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <div className={`p-6 rounded-2xl border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
-          <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Total de Simulados</p>
-          <p className="text-3xl font-black mt-2">{results.length}</p>
-        </div>
-        <div className={`p-6 rounded-2xl border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
-          <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Alunos Registrados</p>
-          <p className="text-3xl font-black mt-2">{students.length}</p>
-        </div>
-        <div className={`p-6 rounded-2xl border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
-          <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Alunos Ativos (Fizeram Simulado)</p>
-          <p className="text-3xl font-black mt-2">{new Set(results.map(r => r.uid)).size}</p>
-        </div>
-        <div className={`p-6 rounded-2xl border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
-          <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Média Geral</p>
-          <p className="text-3xl font-black mt-2">
-            {results.length ? Math.round(results.reduce((acc, r) => acc + (r.score / r.total) * 100, 0) / results.length) : 0}%
-          </p>
-        </div>
-      </div>
+          ) : activeTab === 'results' ? (
+            <div className="space-y-8">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className={`p-5 rounded-2xl border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Total de Simulados</p>
+                  <p className="text-3xl font-black mt-2">{results.length}</p>
+                </div>
+                <div className={`p-5 rounded-2xl border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Alunos Registrados</p>
+                  <p className="text-3xl font-black mt-2">{students.length}</p>
+                </div>
+                <div className={`p-5 rounded-2xl border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Alunos Ativos</p>
+                  <p className="text-3xl font-black mt-2">{new Set(results.map(r => r.uid)).size}</p>
+                </div>
+                <div className={`p-5 rounded-2xl border ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Média Geral</p>
+                  <p className="text-3xl font-black mt-2">
+                    {results.length ? Math.round(results.reduce((acc, r) => acc + (r.score / r.total) * 100, 0) / results.length) : 0}%
+                  </p>
+                </div>
+              </div>
 
-      <div className="flex gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-2">
-        <button
-          onClick={() => setActiveTab('results')}
-          className={`pb-2 px-4 font-bold transition-all border-b-2 ${activeTab === 'results' ? 'border-blue-600 text-blue-600' : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
-        >
-          Últimos Resultados
-        </button>
-        <button
-          onClick={() => setActiveTab('students')}
-          className={`pb-2 px-4 font-bold transition-all border-b-2 ${activeTab === 'students' ? 'border-blue-600 text-blue-600' : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
-        >
-          {(currentUser?.role === 'masteradmin' || currentUser?.username === 'deiorbo') ? 'Usuários Cadastrados' : 'Alunos Cadastrados'}
-        </button>
-        <button
-          onClick={() => setActiveTab('questions')}
-          className={`pb-2 px-4 font-bold transition-all border-b-2 ${activeTab === 'questions' ? 'border-blue-600 text-blue-600' : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
-        >
-          Questões
-        </button>
-        <button
-          onClick={() => setActiveTab('modules')}
-          className={`pb-2 px-4 font-bold transition-all border-b-2 ${activeTab === 'modules' ? 'border-blue-600 text-blue-600' : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
-        >
-          Módulos
-        </button>
-        <button
-          onClick={() => setActiveTab('settings')}
-          className={`pb-2 px-4 font-bold transition-all border-b-2 ${activeTab === 'settings' ? 'border-blue-600 text-blue-600' : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
-        >
-          Hospedagem & Deploy
-        </button>
-      </div>
+              <div className="space-y-4">
+                <h4 className="font-bold text-lg border-b border-zinc-200 dark:border-zinc-800 pb-2">Últimos Simulados</h4>
+                {results.length === 0 ? (
+                  <p className="text-zinc-500">Nenhum simulado realizado.</p>
+                ) : (
+                  results.slice().reverse().slice(0, 10).map((result, i) => {
+                    const studentInfo = students.find(s => s.uid === result.uid);
+                    return (
+                      <div key={i} className={`rounded-2xl border overflow-hidden ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100 shadow-sm'}`}>
+                        <div 
+                          className="flex flex-col md:flex-row justify-between md:items-center gap-4 p-4 sm:p-5 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                          onClick={() => setExpandedResultIdx(expandedResultIdx === i ? null : i)}
+                        >
+                         <div className="flex items-center gap-4">
+                           <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-zinc-200 dark:border-zinc-700 shrink-0">
+                             {studentInfo?.profilePicture ? (
+                               <img src={studentInfo.profilePicture} alt="" className="w-full h-full object-cover" />
+                             ) : (
+                               <div className={`w-full h-full flex items-center justify-center ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
+                                 <User size={20} className="text-zinc-500" />
+                               </div>
+                             )}
+                           </div>
+                           <div>
+                             <h4 className="font-bold">{studentInfo?.fullName || 'Aluno Desconhecido'}</h4>
+                             <p className="text-xs text-zinc-400 font-medium">
+                               {result.sessionTitle} • {new Date(result.date).toLocaleString('pt-BR')}
+                             </p>
+                           </div>
+                         </div>
+                         <div className="flex items-center gap-4 md:justify-end">
+                            <div className="flex gap-2">
+                              <div className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-3 py-1 bg-opacity-50 border border-green-500/20 rounded-lg flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase hidden sm:block">Acertos</span>
+                                <span className="font-black text-sm">{result.score}</span>
+                              </div>
+                              <div className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 px-3 py-1 bg-opacity-50 border border-red-500/20 rounded-lg flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase hidden sm:block">Erros</span>
+                                <span className="font-black text-sm">{result.total - result.score}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                               <button
+                                 onClick={(e) => handleDeleteResult(result, e)}
+                                 className="w-8 h-8 flex items-center justify-center rounded-full text-zinc-400 hover:text-white hover:bg-red-500 transition-colors"
+                                 title="Excluir simulado"
+                               >
+                                 <Trash2 size={16} />
+                               </button>
+                               <div className="w-8 h-8 flex items-center justify-center rounded-full bg-black/5 dark:bg-white/5">
+                                   {expandedResultIdx === i ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                               </div>
+                            </div>
+                         </div>
+                        </div>
+                        
+                        <AnimatePresence>
+                          {expandedResultIdx === i && (
+                            <motion.div 
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              className="border-t border-zinc-200 dark:border-zinc-800 px-4 sm:px-6 py-4 space-y-3 bg-black/5 dark:bg-white/5"
+                            >
+                              <p className="text-sm font-bold uppercase text-zinc-400 tracking-wide mb-2 mt-2">Detalhes das Questões</p>
+                               {result.answersMap.map((ans, j) => (
+                                 <div key={j} className={`p-4 rounded-xl text-sm flex flex-col gap-2 ${ans.isCorrect ? (theme === 'dark' ? 'bg-green-950/40 text-green-100' : 'bg-green-100 text-green-900') : (theme === 'dark' ? 'bg-red-950/40 text-red-100' : 'bg-red-100 text-red-900')}`}>
+                                   <p className="font-medium">{j + 1}. {ans.questionText}</p>
+                                   <div className="flex flex-wrap gap-4 mt-1 opacity-80 text-xs">
+                                     <span className="flex items-center gap-1">
+                                       <strong className="uppercase">Sua R.:</strong> {ans.userAnswer || 'Não respondida'}
+                                     </span>
+                                     {!ans.isCorrect && (
+                                       <span className="flex items-center gap-1">
+                                         <strong className="uppercase">Correta:</strong> {ans.correctAnswer}
+                                       </span>
+                                     )}
+                                   </div>
+                                 </div>
+                               ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+            ) : activeTab === 'students' ? (
+              <div className="space-y-6">
+                <h3 className="text-xl font-bold">{(currentUser?.role === 'masteradmin' || currentUser?.username === 'deiorbo') ? 'Gerenciar Usuários (Professores/Alunos)' : 'Gerenciar Alunos'}</h3>
+                {students.length === 0 ? (
+                  <p className="text-zinc-500">Nenhum aluno cadastrado.</p>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {students.map((student, i) => (
+                      <div key={i} className={`p-4 sm:p-5 rounded-2xl flex flex-col justify-between border hover:border-blue-500/30 transition-all shadow-sm ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
+                        <div className="flex items-center gap-4 mb-4">
+                           <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-zinc-200 dark:border-zinc-700 shrink-0">
+                             {student.profilePicture ? (
+                               <img src={student.profilePicture} alt={student.fullName} className="w-full h-full object-cover" />
+                             ) : (
+                               <div className={`w-full h-full flex items-center justify-center ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
+                                 <User size={20} className="text-zinc-500" />
+                               </div>
+                             )}
+                           </div>
+                           <div className="flex-1 min-w-0">
+                              <h4 className="font-bold truncate text-sm sm:text-base">{student.fullName}</h4>
+                              <p className="text-xs text-zinc-500 truncate">@{student.username}</p>
+                           </div>
+                        </div>
 
-      <div className="space-y-4">
-        {activeTab === 'questions' ? (
+                        <div className="flex gap-2">
+                          <button 
+                             onClick={() => setSelectedStudent(student)}
+                             className="flex-1 py-2 text-xs font-bold rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 transition-colors flex items-center justify-center gap-2"
+                          >
+                            <Eye size={14} /> Ver Perfil
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : activeTab === 'questions' ? (
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
               <h3 className="text-xl font-bold">Banco de Questões (DB)</h3>
@@ -749,7 +969,7 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase text-zinc-500">Matéria</label>
                     <select 
@@ -764,7 +984,26 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase text-zinc-500">Chave Única (ex: anatomia_1)</label>
+                    <label className="text-xs font-bold uppercase text-zinc-500">Período</label>
+                    <select 
+                      className={`w-full p-2.5 rounded-xl border ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700' : 'bg-zinc-50 border-zinc-200'}`}
+                      value={newModule.period || 'P2'}
+                      onChange={(e) => setNewModule({...newModule, period: e.target.value})}
+                    >
+                      <option value="P1">P1</option>
+                      <option value="P2">P2</option>
+                      <option value="P3">P3</option>
+                      <option value="P4">P4</option>
+                      <option value="P5">P5</option>
+                      <option value="P6">P6</option>
+                      <option value="P7">P7</option>
+                      <option value="P8">P8</option>
+                      <option value="P9">P9</option>
+                      <option value="P10">P10</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-zinc-500">Chave Única</label>
                     <input 
                       className={`w-full p-2.5 rounded-xl border ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700' : 'bg-zinc-50 border-zinc-200'}`}
                       value={newModule.moduleKey}
@@ -826,7 +1065,10 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
                     <div key={modKey} className={`p-4 rounded-2xl border flex justify-between items-center ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
                       <div>
                         <p className="font-bold">{mod.title}</p>
-                        <p className="text-xs text-zinc-500">{mod.moduleKey}</p>
+                        <p className="text-xs text-zinc-500">
+                           <span className="font-black text-purple-500 mr-2">{mod.period || 'P2'}</span>
+                           {mod.moduleKey}
+                        </p>
                       </div>
                       <div className="flex gap-2">
                          <button onClick={() => handleEditModule(mod, subjKey)} className="p-2 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-all">
@@ -838,6 +1080,105 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
                       </div>
                     </div>
                   ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : activeTab === 'subjects' ? (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-bold">Gerenciar Matérias</h3>
+              <button 
+                onClick={() => setShowAddSubject(!showAddSubject)}
+                className={`px-4 py-2 rounded-xl font-bold bg-purple-600 text-white shadow-lg`}
+              >
+                {showAddSubject ? 'Fechar Formulário' : '+ Adicionar Matéria'}
+              </button>
+            </div>
+
+            {showAddSubject && (
+              <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                className={`p-6 rounded-2xl border space-y-4 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200 shadow-sm'}`}
+              >
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="font-black text-purple-500 uppercase tracking-tighter">
+                    {editingSubjectId ? 'Editar Matéria' : 'Nova Matéria'}
+                  </h4>
+                  {editingSubjectId && (
+                    <button 
+                      onClick={() => { setEditingSubjectId(null); setShowAddSubject(false); }}
+                      className="text-xs text-zinc-500 hover:text-red-500 underline"
+                    >
+                      Cancelar Edição
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-zinc-500">ID / Chave Única (ex: anatomia, clinica)</label>
+                    <input 
+                      className={`w-full p-2.5 rounded-xl border ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700' : 'bg-zinc-50 border-zinc-200'}`}
+                      value={newSubject.id}
+                      onChange={(e) => setNewSubject({...newSubject, id: e.target.value})}
+                      disabled={!!editingSubjectId}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-zinc-500">Título</label>
+                    <input 
+                      className={`w-full p-2.5 rounded-xl border ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700' : 'bg-zinc-50 border-zinc-200'}`}
+                      value={newSubject.title}
+                      onChange={(e) => setNewSubject({...newSubject, title: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-zinc-500">Ícone (Emoji, ex: 🧬, 🩺, 🦷)</label>
+                    <input 
+                      className={`w-full p-2.5 rounded-xl border ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700' : 'bg-zinc-50 border-zinc-200'}`}
+                      value={newSubject.icon}
+                      onChange={(e) => setNewSubject({...newSubject, icon: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-zinc-500">Cor Hexadecimal (Opção, ex: #3b82f6)</label>
+                    <input 
+                      className={`w-full p-2.5 rounded-xl border ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700' : 'bg-zinc-50 border-zinc-200'}`}
+                      value={newSubject.color}
+                      onChange={(e) => setNewSubject({...newSubject, color: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  onClick={handleAddSubject}
+                  className="w-full py-3 rounded-xl font-bold bg-green-600 text-white shadow-xl"
+                >
+                  Salvar Matéria
+                </button>
+              </motion.div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {questionsData && Object.entries(questionsData).map(([subjKey, subj]: any) => (
+                <div key={subjKey} className={`p-4 rounded-2xl border flex justify-between items-center ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{subj.icon}</span>
+                    <div>
+                      <p className="font-bold">{subj.title}</p>
+                      <p className="text-xs text-zinc-500">Chave: {subjKey} • Módulos: {Object.keys(subj.modules).length}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                     <button onClick={() => handleEditSubject(subj, subjKey)} className="p-2 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-all">
+                       <Edit2 size={16} />
+                     </button>
+                     <button onClick={() => handleDeleteSubject(subjKey)} className="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all">
+                       <Trash2 size={16} />
+                     </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -884,132 +1225,40 @@ export function AdminDashboard({ onBack, theme, currentUser }: { onBack: () => v
               <p className="text-zinc-500 text-sm">Seu app está pronto para rodar profissionalmente.</p>
             </div>
           </div>
-        ) : activeTab === 'students' ? (
-          students.length === 0 ? (
-            <p className="text-zinc-500">Nenhum usuário registrado no sistema ainda.</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {students.map((student, i) => (
-                <div 
-                  key={i} 
-                  onClick={() => setSelectedStudent(student)}
-                  className={`p-6 rounded-2xl border cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}
-                >
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-zinc-200 dark:border-zinc-700">
-                      {student.profilePicture ? (
-                        <img src={student.profilePicture} alt={student.fullName} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className={`w-full h-full flex items-center justify-center ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
-                          <User size={24} className="text-zinc-500" />
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-bold text-lg leading-tight">{student.fullName}</h4>
-                        <span className={`px-1.5 py-0.5 text-[8px] font-black rounded uppercase ${
-                          student.role === 'masteradmin' ? 'bg-red-500 text-white' :
-                          student.role === 'teacher' ? 'bg-purple-500 text-white' : 
-                          'bg-blue-500 text-white'
-                        }`}>
-                          {student.role === 'masteradmin' ? 'Master' :
-                           student.role === 'teacher' ? 'Prof' : 'Aluno'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-zinc-400">@{student.username} • {calculateAge(student.birthDate)} anos</p>
-                    </div>
-                  </div>
-                  <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-between text-sm items-center">
-                    <div className="text-zinc-500">
-                      <span className="font-bold text-zinc-900 dark:text-zinc-100">{results.filter(r => r.uid === student.uid).length}</span> Simulados
-                    </div>
-                    {student.lastAccess && (
-                      <div className="text-xs text-zinc-500 flex items-center gap-1">
-                        <Clock size={12} />
-                        {new Date(student.lastAccess).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )
-        ) : (
-          results.length === 0 ? (
-            <p className="text-zinc-500">Nenhum simulado registrado no dispositivo.</p>
-          ) : (
-            results.slice().reverse().map((result, i) => (
-                  <div key={i} className={`rounded-2xl border overflow-hidden ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
-                    <div 
-                      className="p-4 sm:p-6 flex flex-col md:flex-row justify-between md:items-center gap-4 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                      onClick={() => setExpandedResultIdx(expandedResultIdx === i ? null : i)}
-                    >
-                      <div className="flex-1">
-                        <h4 className="font-bold text-lg">{result.sessionTitle}</h4>
-                        <p className="text-sm text-zinc-400 flex items-center gap-2 mt-1">
-                          <Clock size={14}/> {new Date(result.date).toLocaleString('pt-BR')} • {result.username}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-4 text-center justify-between md:justify-end">
-                        <div className="flex gap-2">
-                           <div className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-3 py-1.5 rounded-lg flex gap-2 items-center">
-                             <p className="text-xs font-bold uppercase hidden sm:block">Acertos</p>
-                             <p className="font-black">{result.score}</p>
-                           </div>
-                           <div className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 px-3 py-1.5 rounded-lg flex gap-2 items-center">
-                             <p className="text-xs font-bold uppercase hidden sm:block">Erros</p>
-                             <p className="font-black">{result.total - result.score}</p>
-                           </div>
-                        </div>
-                        <div className="ml-2 flex items-center gap-2">
-                           <button
-                             onClick={(e) => handleDeleteResult(result, e)}
-                             className="w-8 h-8 flex items-center justify-center rounded-full text-zinc-400 hover:text-white hover:bg-red-500 transition-colors"
-                             title="Excluir simulado"
-                           >
-                             <Trash2 size={16} />
-                           </button>
-                           <div className="w-8 h-8 flex items-center justify-center rounded-full bg-black/5 dark:bg-white/5">
-                               {expandedResultIdx === i ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                           </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <AnimatePresence>
-                      {expandedResultIdx === i && (
-                        <motion.div 
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="border-t border-zinc-200 dark:border-zinc-800 px-4 sm:px-6 py-4 space-y-3 bg-black/5 dark:bg-white/5"
-                        >
-                          <p className="text-sm font-bold uppercase text-zinc-400 tracking-wide mb-2 mt-2">Detalhes das Questões</p>
-                           {result.answersMap.map((ans, j) => (
-                             <div key={j} className={`p-4 rounded-xl text-sm flex flex-col gap-2 ${ans.isCorrect ? (theme === 'dark' ? 'bg-green-950/40 text-green-100' : 'bg-green-100 text-green-900') : (theme === 'dark' ? 'bg-red-950/40 text-red-100' : 'bg-red-100 text-red-900')}`}>
-                               <p className="font-medium">{j + 1}. {ans.questionText}</p>
-                               <div className="flex flex-wrap gap-4 mt-1 opacity-80 text-xs">
-                                 <span className="flex items-center gap-1">
-                                   <strong className="uppercase">Sua R.:</strong> {ans.userAnswer || 'Não respondida'}
-                                 </span>
-                                 {!ans.isCorrect && (
-                                   <span className="flex items-center gap-1">
-                                     <strong className="uppercase">Correta:</strong> {ans.correctAnswer}
-                                   </span>
-                                 )}
-                               </div>
-                             </div>
-                           ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-            ))
-          )
-        )}
+        ) : null}
+        </div>
       </div>
-      </>
+
+      {deleteConfirmResult && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className={`w-full max-w-sm rounded-3xl overflow-hidden p-6 shadow-2xl ${theme === 'dark' ? 'bg-zinc-900 border border-zinc-800' : 'bg-white'}`}
+          >
+            <div className="w-12 h-12 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mb-4 mx-auto">
+              <Trash2 size={24} />
+            </div>
+            <h3 className="text-xl font-bold text-center mb-2">Excluir Simulado?</h3>
+            <p className="text-center text-sm text-zinc-500 dark:text-zinc-400 mb-6">
+              Esta ação é permanente e removerá o simulado selecionado. Você tem certeza?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirmResult(null)}
+                className={`flex-1 py-3 rounded-xl font-bold text-sm ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'} transition-colors`}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDeleteResult}
+                className="flex-1 py-3 rounded-xl font-bold text-sm bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-500/20 transition-all"
+              >
+                Excluir
+              </button>
+            </div>
+          </motion.div>
+        </div>
       )}
     </motion.div>
   );

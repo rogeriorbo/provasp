@@ -22,10 +22,14 @@ export interface Subject {
 }
 
 export interface Module {
+  id?: number;
+  subjectId?: string;
+  moduleKey?: string;
   title: string;
   description: string;
   studyContent?: string;
   videoUrl?: string;
+  period?: string;
   questions: Question[];
 }
 

@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "start": "node dist/server.cjs",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --outfile=dist/server.cjs --external:vite --packages=external",
+    "start": "NODE_ENV=production node dist/server.cjs",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --outfile=dist/server.cjs --external:vite --external:path --external:express --external:cors --external:knex --external:bcryptjs --external:jsonwebtoken --external:dotenv --packages=external",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"

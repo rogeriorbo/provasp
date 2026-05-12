@@ -111,6 +111,41 @@ export const deleteModule = async (id: number) => {
   return response.json();
 };
 
+export const saveSubject = async (subject: any) => {
+  const response = await fetch(`${API_URL}/subjects`, {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${localStorage.getItem('token')}`
+    },
+    body: JSON.stringify(subject)
+  });
+  if (!response.ok) throw new Error('Erro ao salvar matéria');
+  return response.json();
+};
+
+export const updateSubject = async (id: string, subject: any) => {
+  const response = await fetch(`${API_URL}/subjects/${id}`, {
+    method: 'PUT',
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${localStorage.getItem('token')}`
+    },
+    body: JSON.stringify(subject)
+  });
+  if (!response.ok) throw new Error('Erro ao atualizar matéria');
+  return response.json();
+};
+
+export const deleteSubject = async (id: string) => {
+  const response = await fetch(`${API_URL}/subjects/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+  });
+  if (!response.ok) throw new Error('Erro ao excluir matéria');
+  return response.json();
+};
+
 export const loginUser = async (username: string, password: string) => {
   const response = await fetch(`${API_URL}/auth/login`, {
     method: 'POST',

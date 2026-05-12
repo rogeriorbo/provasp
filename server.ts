@@ -104,11 +104,20 @@ async function bootstrap() {
           table.string('subjectId').references('id').inTable('subjects').onDelete('CASCADE');
           table.string('moduleKey').notNullable();
           table.string('title').notNullable();
+          table.string('period').notNullable().defaultTo('P2');
           table.text('description');
           table.text('studyContent', 'longtext');
           table.string('videoUrl');
         });
         console.log('Tabela "modules" criada com sucesso.');
+      } else {
+        const hasPeriodCol = await db.schema.hasColumn('modules', 'period');
+        if (!hasPeriodCol) {
+          await db.schema.alterTable('modules', (table) => {
+            table.string('period').notNullable().defaultTo('P2');
+          });
+          console.log('Coluna "period" adicionada à tabela "modules".');
+        }
       }
 
       const hasQuestions = await db.schema.hasTable('questions');
@@ -502,7 +511,7 @@ async function bootstrap() {
 
   // Modules CRUD
   app.post("/api/modules", checkTeacher, async (req, res) => {
-    const { subjectId, moduleKey, title, description, studyContent, videoUrl } = req.body;
+    const { subjectId, moduleKey, title, description, studyContent, videoUrl, period } = req.body;
     try {
       const [id] = await db('modules').insert({
         subjectId,
@@ -510,7 +519,8 @@ async function bootstrap() {
         title,
         description,
         studyContent,
-        videoUrl
+        videoUrl,
+        period: period || 'P2'
       });
       res.json({ success: true, id });
     } catch (error) {
@@ -520,13 +530,14 @@ async function bootstrap() {
 
   app.put("/api/modules/:id", checkTeacher, async (req, res) => {
     const { id } = req.params;
-    const { title, description, studyContent, videoUrl } = req.body;
+    const { title, description, studyContent, videoUrl, period } = req.body;
     try {
       await db('modules').where({ id }).update({
         title,
         description,
         studyContent,
-        videoUrl
+        videoUrl,
+        period: period || 'P2'
       });
       res.json({ success: true });
     } catch (error) {
@@ -566,10 +577,54 @@ async function bootstrap() {
     }
   });
 
+  // Subjects CRUD
+  app.post("/api/subjects", checkTeacher, async (req, res) => {
+    const { id, title, icon, color } = req.body;
+    try {
+      await db('subjects').insert({
+        id,
+        title,
+        icon,
+        color
+      });
+      res.json({ success: true, id });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao criar matéria" });
+    }
+  });
+
+  app.put("/api/subjects/:id", checkTeacher, async (req, res) => {
+    const { id } = req.params;
+    const { title, icon, color } = req.body;
+    try {
+      await db('subjects').where({ id }).update({
+        title,
+        icon,
+        color
+      });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao atualizar matéria" });
+    }
+  });
+
+  app.delete("/api/subjects/:id", checkTeacher, async (req, res) => {
+    const { id } = req.params;
+    try {
+      await db('subjects').where({ id }).delete();
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Erro ao excluir matéria" });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { 
+        middlewareMode: true,
+        allowedHosts: true
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
