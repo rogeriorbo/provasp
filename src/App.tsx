@@ -14,8 +14,30 @@ import {
   Sun, 
   X, 
   Check,
-  Languages
+  Languages,
+  Play
 } from 'lucide-react';
+
+const USFlag = () => (
+  <svg viewBox="0 0 741 390" className="w-10 h-6 rounded-sm shadow-sm overflow-hidden flex-shrink-0">
+    <rect width="741" height="390" fill="#bf0a30"/>
+    <path fill="#fff" d="M0 30h741v30H0zm0 60h741v30H0zm0 60h741v30H0zm0 120h741v30H0zm0 60h741v30H0zm0-180h741v30H0z"/>
+    <rect width="296.4" height="210" fill="#002868"/>
+    <g fill="#fff">
+      <path d="M22.3 22l1.6 4.9h5.1l-4.1 3 1.6 4.9-4.1-3-4.2 3 1.6-4.9-4.1-3h5.1zM51.9 22l1.6 4.9h5.1l-4.1 3 1.6 4.9-4.1-3-4.2 3 1.6-4.9-4.1-3h5.1zM81.5 22l1.6 4.9h5.1l-4.1 3 1.6 4.9-4.1-3-4.2 3 1.6-4.9-4.1-3h5.1zM111.1 22l1.6 4.9h5.1l-4.1 3 1.6 4.9-4.1-3-4.2 3 1.6-4.9-4.1-3h5.1zM140.7 22l1.6 4.9h5.1l-4.1 3 1.6 4.9-4.1-3-4.2 3 1.6-4.9-4.1-3h5.1z"/>
+      {/* Simplified stars for logo */}
+      <circle cx="30" cy="30" r="2" />
+      <circle cx="60" cy="30" r="2" />
+      <circle cx="90" cy="30" r="2" />
+      <circle cx="120" cy="30" r="2" />
+      <circle cx="150" cy="30" r="2" />
+      <circle cx="45" cy="50" r="2" />
+      <circle cx="75" cy="50" r="2" />
+      <circle cx="105" cy="50" r="2" />
+      <circle cx="135" cy="50" r="2" />
+    </g>
+  </svg>
+);
 
 const handleSpeak = (text: string) => {
   if ('speechSynthesis' in window) {
@@ -585,8 +607,13 @@ export default function App() {
                             }`}
                           >
                             <div className="flex items-center gap-5 relative z-10">
-                              <div className={`text-4xl p-4 rounded-2xl transition-transform group-hover:scale-110 ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-50'}`}>
-                                {subject.icon}
+                              <div className={`text-4xl p-4 rounded-2xl transition-transform group-hover:scale-110 flex items-center justify-center ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-50'}`}>
+                                {key === 'ingles' ? (
+                                  <div className="flex flex-col items-center gap-1">
+                                    <USFlag />
+                                    <span className="text-[10px] font-black tracking-tighter opacity-50">USA</span>
+                                  </div>
+                                ) : subject.icon}
                               </div>
                               <div>
                                 <span className={`block font-black uppercase tracking-[0.15em] text-[10px] mb-1.5 ${
@@ -1100,20 +1127,41 @@ export default function App() {
                         {activeSession.questions[currentQuestion].options?.map((option, idx) => {
                           const isSelected = userAnswers[currentQuestion] === option;
                           return (
-                            <button
+                            <div
                               key={idx}
                               onClick={() => handleAnswer(option)}
-                              className={`w-full p-6 text-left rounded-[24px] border-2 transition-all font-bold text-lg flex items-center justify-between group ${
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  handleAnswer(option);
+                                }
+                              }}
+                              tabIndex={0}
+                              role="button"
+                              className={`w-full p-6 text-left rounded-[24px] border-2 transition-all font-bold text-lg flex items-center justify-between group cursor-pointer ${
                                 isSelected 
                                   ? 'bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-600/20'
                                   : `${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 hover:border-zinc-600 text-zinc-300' : 'bg-zinc-50 border-zinc-50 hover:border-blue-100 text-zinc-700'}`
                               }`}
                             >
-                              <span>{option}</span>
+                              <div className="flex items-center gap-4 flex-grow">
+                                <span>{option}</span>
+                                {selectedSubject === 'ingles' && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSpeak(option);
+                                    }}
+                                    className={`p-2 rounded-lg transition-all ${isSelected ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-500'}`}
+                                  >
+                                    <Volume2 size={16} />
+                                  </button>
+                                )}
+                              </div>
                               <div className={`w-6 h-6 rounded-full border-2 transition-all flex items-center justify-center ${isSelected ? 'bg-white border-white' : 'border-zinc-300 group-hover:border-blue-300'}`}>
                                 {isSelected && <Check size={14} className="text-blue-600" strokeWidth={4} />}
                               </div>
-                            </button>
+                            </div>
                           );
                         })}
                       </div>

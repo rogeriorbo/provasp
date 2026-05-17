@@ -9,6 +9,7 @@ import dotenv from "dotenv";
 import multer from "multer";
 import { GoogleGenAI } from "@google/genai";
 import fs from "fs";
+import { periodDatabases } from "./src/data/questions";
 
 dotenv.config();
 
@@ -147,8 +148,6 @@ async function bootstrap() {
 
       // Importar ou Sincronizar dados do banco de questões
       try {
-        const questionsPath = path.join(process.cwd(), 'src/data/questions.ts');
-        const { periodDatabases } = await import(questionsPath);
         const sourceData = periodDatabases.p2; 
         
         console.log('[DB] Sincronizando banco de questões...');
